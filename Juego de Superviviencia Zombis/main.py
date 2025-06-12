@@ -239,21 +239,26 @@ def main():
                 zombie['pos'][1] += zombie['speed'] * dy / dist
 
             if zombie['type'] == 'boss' and pygame.time.get_ticks() > zombie.get('spawn_timer', 0):
-                for _ in range(3):
-                    zombie['minions'] = [m for m in zombie.get('minions', []) if m in zombies]
-                    zx = zombie['pos'][0] + random.randint(-30, 30)
-                    zy = zombie['pos'][1] + random.randint(-30, 30)
-                    zx = max(0, min(WIDTH - zombie_size, zx))
-                    zy = max(0, min(HEIGHT - zombie_size, zy))
-                    zombies.append({
-                        'pos': [zx, zy],
-                        'health': 2,
-                        'type': 'normal',
-                        'speed': 1,
-                        'damage': 1,
-                        'size': zombie_size
-                    })
-                zombie['spawn_timer'] = pygame.time.get_ticks() + 3000
+            # Solo invocar si no hay minions vivos
+                zombie['minions'] = [m for m in zombie.get('minions', []) if m in zombies]
+                if not zombie['minions']:
+                    zombie['minions'] = []
+                    for _ in range(3):
+                        zx = zombie['pos'][0] + random.randint(-30, 30)
+                        zy = zombie['pos'][1] + random.randint(-30, 30)
+                        zx = max(0, min(WIDTH - zombie_size, zx))
+                        zy = max(0, min(HEIGHT - zombie_size, zy))
+                        minion = ({
+                            'pos': [zx, zy],
+                            'health': 2,
+                            'type': 'normal',
+                            'speed': 1,
+                            'damage': 1,
+                            'size': zombie_size
+                        })
+                        zombies.append(minion)
+                        zombie['minions'].append(minion)
+                    zombie['spawn_timer'] = pygame.time.get_ticks() + 3000
 
             if pygame.Rect(*player_pos, player_size, player_size).colliderect(pygame.Rect(*zombie['pos'], zombie['size'], zombie['size'])):
                 player_health -= zombie['damage']
@@ -277,13 +282,13 @@ def main():
                             with open(high_score_file, "w") as f:
                                 f.write(str(high_score))
 
-                        if zombies_killed_this_round >= zombies_to_kill and not boss_exists:
+                        if not any(z['type'] != 'boss' for z in zombies) and not boss_exists:
                             round_number += 1
                             zombies_killed_this_round = 0
                             zombies_to_kill += 5
                             x = random.randint(0, WIDTH - 80)
                             y = random.choice([0, HEIGHT - 80])
-                            zombies.append({
+                            boss = {
                                 'pos': [x, y],
                                 'health': 30 + 10 * round_number,
                                 'type': 'boss',
@@ -291,10 +296,31 @@ def main():
                                 'damage': 4,
                                 'size': 80,
                                 'spawn_timer': pygame.time.get_ticks() + 3000,
-                                'minions': []  # 👈 Nueva lista para rastrear minions
-                            })
+                                'minions': []
+                            }
+                            zombies.append(boss)
                             boss_exists = True
-                    break
+                        break
+                    # Solo avanzar ronda si no hay zombis ni jefe
+                    if not zombies and not boss_exists:
+                        round_number += 1
+                        zombies_killed_this_round = 0
+                        zombies_to_kill += 5
+                        x = random.randint(0, WIDTH - 80)
+                        y = random.choice([0, HEIGHT - 80])
+                        boss = {
+                            'pos': [x, y],
+                            'health': 30 + 10 * round_number,
+                            'type': 'boss',
+                            'speed': 0.5,
+                            'damage': 4,
+                            'size': 80,
+                            'spawn_timer': pygame.time.get_ticks() + 3000,
+                            'minions': []
+                        }
+                        zombies.append(boss)
+                        boss_exists = True
+
 
         for powerup in powerups[:]:
             if pygame.Rect(*player_pos, player_size, player_size).colliderect(pygame.Rect(powerup[0], powerup[1], powerup_size, powerup_size)):
